@@ -8,7 +8,7 @@
   "server": {
     "ip": "zovvra.mcsh.io",
     "port": 25565,
-    "version": ""
+    "version": "1.21.11"
   },
   "utils": {
     "auto-auth": {
