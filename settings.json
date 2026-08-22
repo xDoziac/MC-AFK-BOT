@@ -13,19 +13,20 @@
   "utils": {
     "auto-auth": {
       "enabled": true,
-      "password": "changeme123"
+      "password": "Changeme123"
     },
     "anti-afk": {
       "enabled": true,
       "sneak": true
     },
     "chat-messages": {
-      "enabled": false,
+      "enabled": true,
       "repeat": true,
       "repeat-delay": 120,
       "messages": [
         "I'm a regular player",
         "Just AFK, don't mind me!"
+        "Zovra is the best DEV!"
       ]
     },
     "chat-log": true,
@@ -75,11 +76,11 @@
     "respond": true
   },
   "dashboard": {
+  "enabled": true,
+  "port": 3000,
+  "self-ping": {
     "enabled": true,
-    "port": 3000,
-    "self-ping": {
-      "enabled": false,
-      "url": ""
-    }
+    "url": "https://mc-afk-bot-production-9f12.up.railway.app/health"
   }
+}
 }
