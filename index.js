@@ -1,85 +1,47 @@
-{
-  "name": "AFK Bot",
-  "bot-account": {
-    "username": "AFKBot",
-    "password": "",
-    "type": "offline"
-  },
-  "server": {
-    "ip": "your-server.aternos.me",
-    "port": 25565,
-    "version": ""
-  },
-  "utils": {
-    "auto-auth": {
-      "enabled": true,
-      "password": "changeme123"
-    },
-    "anti-afk": {
-      "enabled": true,
-      "sneak": true
-    },
-    "chat-messages": {
-      "enabled": false,
-      "repeat": true,
-      "repeat-delay": 120,
-      "messages": [
-        "I'm a regular player",
-        "Just AFK, don't mind me!"
-      ]
-    },
-    "chat-log": true,
-    "auto-reconnect": true,
-    "auto-reconnect-delay": 3000,
-    "max-reconnect-delay": 120000
-  },
-  "movement": {
-    "enabled": true,
-    "circle-walk": {
-      "enabled": true,
-      "radius": 4,
-      "speed": 3000
-    },
-    "look-around": {
-      "enabled": true,
-      "interval": 5000
-    },
-    "random-jump": {
-      "enabled": true,
-      "interval": 15000
-    }
-  },
-  "modules": {
-    "avoid-mobs": true,
-    "combat": true,
-    "beds": false,
-    "chat": true
-  },
-  "combat": {
-    "attack-mobs": true,
-    "auto-eat": true
-  },
-  "beds": {
-    "place-night": false
-  },
-  "discord": {
-    "enabled": false,
-    "webhookUrl": "YOUR_DISCORD_WEBHOOK_URL_HERE",
-    "events": {
-      "connect": true,
-      "disconnect": true,
-      "chat": false
-    }
-  },
-  "chat": {
-    "respond": true
-  },
-  "dashboard": {
-    "enabled": true,
-    "port": 3000,
-    "self-ping": {
-      "enabled": false,
-      "url": ""
-    }
-  }
+"use strict";
+
+const { addLog } = require("./src/logger");
+const { loadConfig } = require("./src/config");
+const { startServer } = require("./src/server");
+const { startBot, stopBot } = require("./src/botManager");
+const { initConsole } = require("./src/modules/console");
+const { pushError } = require("./src/state");
+
+let config;
+try {
+  config = loadConfig();
+} catch (err) {
+  // A bad settings.json should fail loudly and immediately, not crash the
+  // process 10 seconds later inside some unrelated module.
+  console.error(`[FATAL] ${err.message}`);
+  process.exit(1);
 }
+
+addLog(`[Boot] Starting ${config.name} for ${config.server.ip}:${config.server.port}`);
+
+startServer(config);
+startBot(config);
+initConsole();
+
+// Safety nets: log and keep running instead of letting one bad promise or
+// stray exception kill the whole process (which then relies on the host
+// platform to restart it — slow, and loses in-memory logs/state).
+process.on("uncaughtException", (err) => {
+  addLog(`[FATAL] Uncaught exception: ${err.stack || err.message}`);
+  pushError("uncaughtException", err.message);
+});
+
+process.on("unhandledRejection", (reason) => {
+  const message = reason instanceof Error ? reason.stack || reason.message : String(reason);
+  addLog(`[FATAL] Unhandled rejection: ${message}`);
+  pushError("unhandledRejection", message);
+});
+
+function shutdown(signal) {
+  addLog(`[Boot] Received ${signal}, shutting down...`);
+  stopBot();
+  process.exit(0);
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
