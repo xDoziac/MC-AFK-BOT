@@ -56,6 +56,7 @@ function createBot(config) {
 
 function attachLifecycleHandlers(bot, config) {
   let spawnHandled = false;
+  let autoAuthHandled = false;
 
   clearTimeout(connectionTimeoutId);
   connectionTimeoutId = setTimeout(() => {
@@ -65,6 +66,25 @@ function attachLifecycleHandlers(bot, config) {
       scheduleReconnect(config);
     }
   }, SPAWN_TIMEOUT_MS);
+
+  // Some auth plugins/mods (EasyAuth in particular) withhold the world-spawn
+  // packet entirely until the player authenticates — mineflayer's 'spawn'
+  // event never fires in that case, so anything gated on 'spawn' (including
+  // auto-auth itself, if it lived there) would never run and the login
+  // window just times out. 'login' fires as soon as the connection reaches
+  // the play state, before world-spawn, and chat commands can be sent from
+  // that point on — so auto-auth is wired here instead, independently of
+  // whether 'spawn' ever happens.
+  bot.once("login", () => {
+    if (autoAuthHandled) return;
+    autoAuthHandled = true;
+    try {
+      initAutoAuth(bot, config);
+    } catch (err) {
+      addLog(`[AutoAuth] failed to initialize: ${err.message}`);
+      pushError("module:autoAuth", err.message);
+    }
+  });
 
   bot.once("spawn", () => {
     if (spawnHandled) return; // some servers fire 'spawn' more than once
@@ -140,8 +160,10 @@ function attachLifecycleHandlers(bot, config) {
 function initModules(bot, config) {
   // Each module is isolated in its own try/catch: a bug in one module (say,
   // beds) should never be able to take down anti-afk, chat, combat, etc.
+  // NOTE: autoAuth is intentionally NOT here — it's wired to the earlier
+  // 'login' event in attachLifecycleHandlers() so it still runs on servers
+  // that withhold 'spawn' until the player authenticates.
   const modules = [
-    ["autoAuth", () => initAutoAuth(bot, config)],
     ["movement", () => initMovement(bot, config)],
     ["chatMessages", () => initChatMessages(bot, config)],
     ["chatResponder", () =>
